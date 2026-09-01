@@ -126,6 +126,9 @@ export function ViewScreen({
       setStatus("ready");
       return;
     }
+    // An edit may have queued an automation. Nudge the queue without waiting on
+    // it — the save has already succeeded either way.
+    void fetch("/api/jobs/drain", { method: "POST" }).catch(() => {});
     void reload({});
   };
 

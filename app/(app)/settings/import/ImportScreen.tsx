@@ -41,6 +41,12 @@ export function ImportScreen({
     let cancelled = false;
 
     const poll = async () => {
+      // On a host with no worker process, the queue only moves when something
+      // asks it to. Draining here is what makes the import run; where a real
+      // worker is running it will simply have taken the job first.
+      await fetch("/api/jobs/drain", { method: "POST" }).catch(() => {});
+      if (cancelled) return;
+
       const status = await importStatusAction(jobId);
       if (cancelled || !status) return;
       setProgress(status);

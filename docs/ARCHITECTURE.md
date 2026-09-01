@@ -136,6 +136,20 @@ Three rules that prevent the classic failure modes:
   to the tenant. Without this, two automations that update each other will run forever.
 - Actions are idempotent by key, so a retried job doesn't send an email twice.
 
+## Running jobs where there is no process
+
+`npm run worker` is the worker: a process that sits there and consumes. A serverless host has no
+such process, so `POST /api/jobs/drain` runs the same handlers on the same queues on demand, and the
+client calls it while it polls a job's progress.
+
+Only the wake-up changes. The job is still queued, still logged, still idempotent, still retried,
+and still runs outside the request that created it — an import of twenty thousand rows is not done
+inside the request that uploaded the file. Where a real worker is running it simply takes the job
+first; `fetch` is atomic, so the two cannot both run it.
+
+The honest limit: a single job that outlives the platform's function timeout will be retried rather
+than finished. Past that size, run a worker process.
+
 ## Email and calendar sync
 
 Budget three to four weeks. It is the single largest piece of v1 outside the runtime, and it's

@@ -26,6 +26,34 @@ npm test           # config patches, rollback round-trips, and RLS isolation
 npm run typecheck
 ```
 
+## Deploying
+
+The app connects as a role **without `bypassrls`**. This is not a detail: on a managed Postgres the
+default superuser usually carries `bypassrls`, and connecting as it turns every policy in this
+repository into decoration — silently, and invisibly until you have two tenants. Check it:
+
+```sql
+select rolname, rolbypassrls from pg_roles where rolname = current_user;
+```
+
+If your provider publishes the `public` schema over an HTTP API (Supabase does, via PostgREST), the
+`users` and `sessions` tables — which carry no RLS, because they are not tenant-scoped — are exposed
+to whatever role that API authenticates as. Revoke it; this app never uses PostgREST:
+
+```sql
+revoke all on all tables in schema public from anon, authenticated;
+revoke usage on schema public from anon, authenticated;
+alter default privileges in schema public revoke all on tables from anon, authenticated;
+revoke all on function app_user_memberships(uuid) from public, anon, authenticated;
+```
+
+Serverless needs the transaction-mode connection pooler, which works here because `app.tenant_id` is
+set with `set_config(..., true)` — transaction-scoped, not session-scoped. Background jobs have no
+process to run in, so see "Running jobs where there is no process" in `docs/ARCHITECTURE.md`.
+
+Required environment: `DATABASE_URL`, `SESSION_SECRET`, `ENCRYPTION_KEY` (32 bytes, base64).
+`ANTHROPIC_API_KEY` enables the agent; the three `GOOGLE_*` variables enable Gmail.
+
 ## The three invariants
 
 1. The agent mutates config only. Its entire surface is the tool list in `docs/AGENT-TOOLS.md`.
