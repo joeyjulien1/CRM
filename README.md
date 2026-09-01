@@ -1,49 +1,67 @@
-# crm-builder
+# crm
 
-Scaffold for a multi-tenant CRM that customers configure by talking to an agent.
+A multi-tenant CRM that each customer configures by talking to an AI agent instead of hiring a
+consultant. The agent writes **configuration**, never code and never customer data. A runtime engine
+reads that configuration and renders the CRM.
 
-Nothing here is code yet. It's the set of documents that make Claude Code build the right thing
-instead of a plausible thing.
+## Run it
 
-## Use it
+Requires Node 22 and Postgres 16.
 
 ```bash
-mkdir my-crm && cd my-crm
-git init
-# copy CLAUDE.md and docs/ in
-claude
+npm install
+cp .env.example .env          # fill in DATABASE_URL and DATABASE_ADMIN_URL
+createdb crm
+npm run db:migrate            # creates the schema, the crm_app role, and every RLS policy
+npm run dev                   # the app
+npm run worker                # background jobs, in a second terminal
 ```
 
-First prompt:
+The app connects as `crm_app`, a role without `bypassrls`. Migrations connect as the owner. If you
+point both at the same superuser, the isolation tests still pass — `force row level security` binds
+the owner too — but you have given up a layer of defence, so don't.
 
-> Read CLAUDE.md and everything in docs/. Then tell me what you understand the three invariants
-> to be, what the nine renderers are, and what is explicitly out of scope for v1. Don't write
-> any code yet.
+```bash
+npm test           # config patches, rollback round-trips, and RLS isolation
+npm run typecheck
+```
 
-If the answer is wrong or vague, fix the docs before writing a line. That five-minute check is
-worth more than any amount of correcting course later.
+## The three invariants
 
-Then work through `docs/ROADMAP.md`, one milestone per session. Start a fresh session per
-milestone so context stays clean.
+1. The agent mutates config only. Its entire surface is the tool list in `docs/AGENT-TOOLS.md`.
+2. Every config change is a validated, versioned, reversible patch.
+3. Tenant isolation is enforced in the database, not the application.
 
-## Before you start
+`lib/db/rls.test.ts` fails if a policy is removed, and fails if a new table carries `tenant_id`
+without being declared tenant-scoped.
 
-Two things to do yourself, because they're decisions rather than implementation:
+## Layout
 
-**Derive your design tokens.** `docs/DESIGN.md` has placeholder values. Open overflow.io with
-devtools, pull the real computed colour ramp, font stack and weights, radius, and border
-values, and replace the brand block. Half an hour, and it gives you better values than any
-analysis of a screenshot.
-
-**Name the product.** `crm-builder` appears in `CLAUDE.md`, the package name, and the database
-name. Rename before the first commit — it's ten seconds now and a find-and-replace across a
-codebase later.
+```
+app/
+  (marketing)/          public site — site density
+  (app)/                the product — dense mode
+components/
+  ui/                   shadcn primitives, unmodified
+  renderers/            the nine config-driven renderers
+  agent/                chat panel, config diff viewer
+lib/
+  config/               schema, validation, patch application, versioning
+  agent/                tool definitions, execution loop, guardrails
+  runtime/              config -> query, config -> view resolution
+  automations/          trigger evaluation and action execution
+  import/               spreadsheet mapping and background import
+  email/                Gmail OAuth, sync, record matching
+  db/                   schema, migrations, RLS policies
+  jobs/                 pg-boss queue and worker entrypoint
+docs/                   read these
+```
 
 ## Keep the docs honest
 
-When a decision changes, change the doc in the same commit as the code. These files are only
-useful if they describe what's actually true; a stale `COMPONENTS.md` is worse than no
-`COMPONENTS.md`, because the agent will build against it confidently.
+When a decision changes, change the doc in the same commit as the code. These files are only useful
+if they describe what's actually true; a stale `COMPONENTS.md` is worse than no `COMPONENTS.md`,
+because the agent will build against it confidently.
 
 ## Files
 
@@ -55,3 +73,9 @@ useful if they describe what's actually true; a stale `COMPONENTS.md` is worse t
 | `docs/DESIGN.md` | touching anything visual |
 | `docs/COMPONENTS.md` | building or changing a renderer |
 | `docs/ROADMAP.md` | starting a milestone |
+
+## Still to do
+
+`docs/DESIGN.md` ships placeholder brand tokens. Pull the real computed colour ramp, font stack,
+radius, and border values and replace the brand block in `app/globals.css` — everything else in the
+design system reads through the semantic layer, so that block is the only edit.

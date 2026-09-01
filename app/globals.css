@@ -1,0 +1,193 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ---------------------------------------------------------------------------
+   Brand layer — shared by the marketing site and the app.
+   Changing the brand means editing this block and nothing below it.
+   Values are the placeholders from docs/DESIGN.md; swap in the derived
+   Overflow ramp when it is pulled.
+   --------------------------------------------------------------------------- */
+:root {
+  --brand-50: #f4f6fb;
+  --brand-100: #e4e9f5;
+  --brand-300: #a9b6dc;
+  --brand-500: #4f63b5;
+  --brand-700: #33417a;
+  --brand-900: #1b2246;
+
+  --neutral-0: #ffffff;
+  --neutral-50: #fafafa;
+  --neutral-100: #f2f2f3;
+  --neutral-200: #e6e6e8;
+  --neutral-400: #a1a1a8;
+  --neutral-600: #62626a;
+  --neutral-900: #18181b;
+
+  --danger: #b4342f;
+  --success: #1d7a52;
+  --warning: #9a6510;
+
+  --font-sans: ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, monospace;
+
+  --radius-sm: 4px;
+  --radius: 6px;
+  --radius-lg: 10px;
+  --border-width: 1px;
+
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --dur-fast: 120ms;
+  --dur: 180ms;
+}
+
+/* ---------------------------------------------------------------------------
+   Semantic layer — components reference these, never the raw ramp.
+   --------------------------------------------------------------------------- */
+:root {
+  --surface: var(--neutral-0);
+  --surface-sunken: var(--neutral-50);
+  --surface-raised: var(--neutral-0);
+  --surface-hover: var(--neutral-100);
+
+  --text-primary: var(--neutral-900);
+  --text-secondary: var(--neutral-600);
+  --text-muted: var(--neutral-400);
+  --text-accent: var(--brand-700);
+
+  --border-subtle: var(--neutral-200);
+  --border-strong: var(--neutral-400);
+  --border: var(--border-subtle);
+  --focus-ring: var(--brand-500);
+
+  --accent: var(--brand-500);
+  --accent-hover: var(--brand-700);
+  --accent-fg: var(--neutral-0);
+}
+
+/* Dark mode overrides the semantic layer only. The ramp is never overridden. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --surface: #101013;
+    --surface-sunken: #0a0a0c;
+    --surface-raised: #17171b;
+    --surface-hover: #1f1f24;
+
+    --text-primary: #f4f4f5;
+    --text-secondary: #a1a1a8;
+    --text-muted: #6c6c75;
+    --text-accent: var(--brand-300);
+
+    --border-subtle: #26262b;
+    --border-strong: #3d3d44;
+    --border: var(--border-subtle);
+
+    --accent: var(--brand-500);
+    --accent-hover: var(--brand-300);
+    --accent-fg: var(--neutral-0);
+  }
+}
+
+:root[data-theme="dark"] {
+  --surface: #101013;
+  --surface-sunken: #0a0a0c;
+  --surface-raised: #17171b;
+  --surface-hover: #1f1f24;
+
+  --text-primary: #f4f4f5;
+  --text-secondary: #a1a1a8;
+  --text-muted: #6c6c75;
+  --text-accent: var(--brand-300);
+
+  --border-subtle: #26262b;
+  --border-strong: #3d3d44;
+  --border: var(--border-subtle);
+
+  --accent: var(--brand-500);
+  --accent-hover: var(--brand-300);
+  --accent-fg: var(--neutral-0);
+}
+
+/* ---------------------------------------------------------------------------
+   Density layer — forked. Set data-density once on a route group's layout root.
+   Nothing below this line references a raw px value.
+   --------------------------------------------------------------------------- */
+[data-density="site"] {
+  --space-1: 8px;
+  --space-2: 16px;
+  --space-3: 24px;
+  --space-4: 40px;
+  --space-5: 64px;
+  --space-6: 96px;
+
+  --text-xs: 14px;
+  --text-sm: 16px;
+  --text-base: 18px;
+  --text-lg: 28px;
+  --text-xl: 40px;
+  --text-2xl: 56px;
+
+  --line-body: 1.6;
+  --control-h: 44px;
+}
+
+[data-density="app"] {
+  --space-1: 2px;
+  --space-2: 4px;
+  --space-3: 8px;
+  --space-4: 12px;
+  --space-5: 16px;
+  --space-6: 24px;
+
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 13px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+  --text-2xl: 24px;
+
+  --line-body: 1.45;
+  --control-h: 30px;
+  --row-h: 34px;
+}
+
+@layer base {
+  * {
+    border-color: var(--border-subtle);
+  }
+
+  html {
+    font-family: var(--font-sans);
+  }
+
+  body {
+    background: var(--surface);
+    color: var(--text-primary);
+    font-size: var(--text-base);
+    line-height: var(--line-body);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Focus is always visible. A CRM is a keyboard product. */
+  :focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+
+  /* Motion answers actions only — nothing animates on page load. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  .skeleton {
+    background: var(--surface-hover);
+    border-radius: var(--radius-sm);
+  }
+}

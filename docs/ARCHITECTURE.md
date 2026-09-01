@@ -24,10 +24,23 @@ Every tenant-scoped table carries `tenant_id uuid not null` and has an RLS polic
 
 ```sql
 alter table records enable row level security;
+alter table records force row level security;
 
 create policy tenant_isolation on records
-  using (tenant_id = current_setting('app.tenant_id')::uuid);
+  using (tenant_id = current_tenant_id())
+  with check (tenant_id = current_tenant_id());
 ```
+
+`current_tenant_id()` is `nullif(current_setting('app.tenant_id', true), '')::uuid`. The two-argument
+form returns null instead of raising when the setting is missing, and `tenant_id = null` matches no
+rows — an unset tenant sees nothing rather than erroring, which is the direction you want to fail in.
+`force` is what makes the policy bind the table owner too, so the guarantee does not depend on which
+role happens to be connected. `with check` is what stops a tenant writing a row stamped with someone
+else's id.
+
+Login happens before a tenant is chosen, so one `security definer` function, `app_user_memberships`,
+takes a user id and returns their workspaces. That is the single audited path around RLS; everything
+else goes through `withTenant`.
 
 The app sets `app.tenant_id` once per request, inside the transaction, from the session — never
 from a request parameter, header, or anything the client controls. Get this wrong once and you
