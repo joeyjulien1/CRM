@@ -103,6 +103,12 @@ export function AppShell({
           >
             Import a spreadsheet
           </Link>
+          <Link
+            href="/settings/email"
+            className="flex h-row items-center px-1 text-xs text-content-secondary hover:text-content"
+          >
+            Email
+          </Link>
           <p className="px-1 pt-2 text-xs text-content-muted">{session.email}</p>
         </div>
       </nav>

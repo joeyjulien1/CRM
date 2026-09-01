@@ -9,6 +9,11 @@ export default async function ImportPage() {
 
   const config = await getConfig(session.tenantId);
 
+  const viewByObject: Record<string, string> = {};
+  for (const view of config.views) {
+    if (!viewByObject[view.objectKey]) viewByObject[view.objectKey] = view.id;
+  }
+
   return (
     <ImportScreen
       objects={config.objects.map((object) => ({
@@ -16,6 +21,7 @@ export default async function ImportPage() {
         label: object.label,
         labelPlural: object.labelPlural,
       }))}
+      viewByObject={viewByObject}
     />
   );
 }

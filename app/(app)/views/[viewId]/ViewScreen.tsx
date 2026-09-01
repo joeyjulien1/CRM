@@ -9,7 +9,7 @@ import { TableView } from "@/components/renderers/TableView";
 import { KanbanView } from "@/components/renderers/KanbanView";
 import { RecordDetail } from "@/components/renderers/RecordDetail";
 import { FormRenderer } from "@/components/renderers/FormRenderer";
-import { FilterBar, emptyFilterTree } from "@/components/renderers/FilterBar";
+import { completeConditionsOnly, emptyFilterTree, FilterBar } from "@/components/renderers/FilterBar";
 import type { FieldLookup } from "@/components/renderers/FieldRenderer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,11 +58,24 @@ export function ViewScreen({
   const [newValues, setNewValues] = React.useState<Record<string, unknown>>({});
   const [createError, setCreateError] = React.useState<string>();
 
+  /**
+   * The server payload seeds this screen; after that the client owns what is on
+   * it. Re-syncing on every props change would let a background revalidation
+   * overwrite a filtered result with the unfiltered one.
+   */
+  const seededView = React.useRef(view.id);
   React.useEffect(() => {
+    if (seededView.current === view.id) return;
+    seededView.current = view.id;
     setRecords(initialRecords);
     setTotal(initialTotal);
     setTitles(initialTitles);
-  }, [initialRecords, initialTotal, initialTitles]);
+    setSort(view.sort);
+    setFilters(view.filters ?? emptyFilterTree);
+    setSearch("");
+    setSelected([]);
+    setOpenRecordId(null);
+  }, [view.id, view.sort, view.filters, initialRecords, initialTotal, initialTitles]);
 
   const reload = React.useCallback(
     async (next: { sort?: Sort; filters?: FilterTree; search?: string }) => {
@@ -71,7 +84,7 @@ export function ViewScreen({
       try {
         const page = await listRecordsAction(view.id, {
           sort: next.sort ?? sort,
-          filters: next.filters ?? filters,
+          filters: completeConditionsOnly(next.filters ?? filters),
           search: next.search ?? search,
         });
         setRecords(page.records);

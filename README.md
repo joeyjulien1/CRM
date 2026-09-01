@@ -74,8 +74,27 @@ because the agent will build against it confidently.
 | `docs/COMPONENTS.md` | building or changing a renderer |
 | `docs/ROADMAP.md` | starting a milestone |
 
+## What is verified, and what isn't
+
+`npm test` covers config patches and rollback round-trips, RLS isolation, filter compilation, field
+coercion, the agent's tool surface, budget enforcement, automation depth and idempotency, and
+import. A browser pass covers sign-up, the table, inline editing, filtering, the board, the command
+palette, the agent panel, record detail, history, and an import running to completion.
+
+Two paths have no automated coverage because they need credentials this repo does not carry:
+
+- **The agent's model round-trip.** Tool definitions, patch staging, validation retry, budget, and
+  the diff are all tested; the `messages.create` call itself has never run. Set `ANTHROPIC_API_KEY`
+  and ask it for a renewal date field to close that gap.
+- **Gmail sync.** OAuth, backfill, incremental sync, and matching are written against Gmail's REST
+  API but have not been run against a real mailbox. Set the three `GOOGLE_*` variables first.
+
 ## Still to do
 
 `docs/DESIGN.md` ships placeholder brand tokens. Pull the real computed colour ramp, font stack,
 radius, and border values and replace the brand block in `app/globals.css` — everything else in the
 design system reads through the semantic layer, so that block is the only edit.
+
+`date_reached` automations have a sweep (`dispatchDueDates`) but nothing calls it yet; it needs a
+scheduled job. Billing, onboarding email, error monitoring, and a status page — the rest of
+milestone 9 — are not built.

@@ -21,8 +21,10 @@ import {
  */
 export function ImportScreen({
   objects,
+  viewByObject,
 }: {
   objects: { key: ObjectKey; label: string; labelPlural: string }[];
+  viewByObject: Record<string, string>;
 }) {
   const router = useRouter();
   const [objectKey, setObjectKey] = React.useState<ObjectKey>(objects[0]?.key ?? "contact");
@@ -104,7 +106,17 @@ export function ImportScreen({
 
         {done ? (
           <div className="mt-5 flex gap-2">
-            <Button variant="primary" size="sm" onClick={() => router.push("/")}>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => {
+                const viewId = viewByObject[objectKey];
+                // Refresh so the record counts in the sidebar catch up with
+                // what the background import just created.
+                router.refresh();
+                router.push(viewId ? `/views/${viewId}` : "/settings/history");
+              }}
+            >
               See the records
             </Button>
             <Button

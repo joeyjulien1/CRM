@@ -265,10 +265,22 @@ export function TableView({
                               className="truncate text-left hover:underline"
                               onClick={() => onOpenRecord(record.id)}
                             >
-                              <FieldRenderer field={column} value={record.data[column.id]} mode="read" lookup={lookup} />
+                              <FieldRenderer
+                                field={column}
+                                value={record.data[column.id]}
+                                mode="read"
+                                lookup={lookup}
+                                linkable={false}
+                              />
                             </button>
                           ) : (
-                            <FieldRenderer field={column} value={record.data[column.id]} mode="read" lookup={lookup} />
+                            <FieldRenderer
+                              field={column}
+                              value={record.data[column.id]}
+                              mode="read"
+                              lookup={lookup}
+                              linkable={false}
+                            />
                           )}
                         </div>
                       );

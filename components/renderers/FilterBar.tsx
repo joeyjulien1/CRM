@@ -55,6 +55,31 @@ export interface FilterBarProps {
 
 export const emptyFilterTree: FilterTree = { join: "and", conditions: [], groups: [] };
 
+/**
+ * A condition the user has started but not finished — a field chosen, no value
+ * typed yet — should show everything, not fail. The query resolver stays
+ * strict about what it accepts; this is where half-built rows are dropped.
+ */
+export function completeConditionsOnly(filters: FilterTree): FilterTree {
+  const usable = (condition: FilterCondition): boolean => {
+    if (VALUELESS.includes(condition.operator)) return true;
+    const value = condition.value;
+    if (value === undefined || value === null || value === "") return false;
+    if (Array.isArray(value)) {
+      return value.length > 0 && value.every((entry) => entry !== null && entry !== undefined && entry !== "");
+    }
+    return true;
+  };
+
+  return {
+    join: filters.join,
+    conditions: filters.conditions.filter(usable),
+    groups: filters.groups
+      .map((group) => ({ ...group, conditions: group.conditions.filter(usable) }))
+      .filter((group) => group.conditions.length > 0),
+  };
+}
+
 export function FilterBar({ object, filters, onChange, lookup, className }: FilterBarProps) {
   const fields = object.fields;
   const byId = React.useMemo(() => new Map(fields.map((field) => [field.id, field])), [fields]);

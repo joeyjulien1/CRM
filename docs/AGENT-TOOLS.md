@@ -67,6 +67,11 @@ contact list is a product you can't sell.
 This is the one place the agent sees customer data, and only because the user handed it over.
 Sample at most 20 rows. Never send the full file to the model.
 
+These two are the exception to "every tool returns a patch": an import creates records, and records
+are not configuration, so there is no config version to write. They return a proposal that goes
+through the same confirm-before-anything-happens path, and `apply_import` then runs as a background
+job. Everything else on this page returns a patch.
+
 ## Read tools
 
 | Tool | Returns |

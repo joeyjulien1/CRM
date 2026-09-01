@@ -37,6 +37,8 @@ export async function getCurrentVersion(db: Db, tenantId: string): Promise<Confi
     };
   }
 
+  // Two requests can reach a brand new tenant at once — a layout and its page,
+  // say. Whichever loses the race reads the version the winner wrote.
   const [seeded] = await db
     .insert(configVersions)
     .values({
@@ -48,17 +50,37 @@ export async function getCurrentVersion(db: Db, tenantId: string): Promise<Confi
       author: "system",
       summary: "Starting configuration",
     })
+    .onConflictDoNothing({ target: [configVersions.tenantId, configVersions.version] })
     .returning();
 
-  if (!seeded) throw new Error("Could not seed the starting configuration");
+  if (seeded) {
+    return {
+      id: seeded.id,
+      version: seeded.version,
+      config: seeded.config,
+      patch: seeded.patch,
+      author: seeded.author,
+      summary: seeded.summary,
+      createdAt: seeded.createdAt,
+    };
+  }
+
+  const [existing] = await db
+    .select()
+    .from(configVersions)
+    .where(eq(configVersions.tenantId, tenantId))
+    .orderBy(desc(configVersions.version))
+    .limit(1);
+
+  if (!existing) throw new Error("Could not read the starting configuration");
   return {
-    id: seeded.id,
-    version: seeded.version,
-    config: seeded.config,
-    patch: seeded.patch,
-    author: seeded.author,
-    summary: seeded.summary,
-    createdAt: seeded.createdAt,
+    id: existing.id,
+    version: existing.version,
+    config: existing.config,
+    patch: existing.patch,
+    author: existing.author,
+    summary: existing.summary,
+    createdAt: existing.createdAt,
   };
 }
 

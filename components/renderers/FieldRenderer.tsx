@@ -36,6 +36,11 @@ export interface FieldRendererProps {
   autoFocus?: boolean;
   invalid?: boolean;
   className?: string;
+  /**
+   * Off inside a table, where a cell is a double-click away from being edited
+   * and a stray click should not open a mail client.
+   */
+  linkable?: boolean;
 }
 
 export function FieldRenderer({
@@ -49,9 +54,10 @@ export function FieldRenderer({
   autoFocus,
   invalid,
   className,
+  linkable = true,
 }: FieldRendererProps) {
   if (mode === "read") {
-    return <ReadValue field={field} value={value} lookup={lookup} className={className} />;
+    return <ReadValue field={field} value={value} lookup={lookup} className={className} linkable={linkable} />;
   }
   return (
     <EditValue
@@ -77,7 +83,8 @@ function ReadValue({
   value,
   lookup,
   className,
-}: Pick<FieldRendererProps, "field" | "value" | "lookup" | "className">) {
+  linkable = true,
+}: Pick<FieldRendererProps, "field" | "value" | "lookup" | "className" | "linkable">) {
   const empty = value === null || value === undefined || value === "" || (Array.isArray(value) && value.length === 0);
 
   if (empty) {
@@ -110,7 +117,7 @@ function ReadValue({
     }
 
     case "url":
-      return (
+      return linkable ? (
         <a
           href={String(value)}
           target="_blank"
@@ -120,20 +127,26 @@ function ReadValue({
           {String(value).replace(/^https?:\/\//, "")}
           <ExternalLink size={11} aria-hidden />
         </a>
+      ) : (
+        <span className={className}>{String(value).replace(/^https?:\/\//, "")}</span>
       );
 
     case "email":
-      return (
+      return linkable ? (
         <a href={`mailto:${String(value)}`} className={cn("underline underline-offset-2", className)}>
           {String(value)}
         </a>
+      ) : (
+        <span className={className}>{String(value)}</span>
       );
 
     case "phone":
-      return (
+      return linkable ? (
         <a href={`tel:${String(value)}`} className={cn("underline underline-offset-2", className)}>
           {String(value)}
         </a>
+      ) : (
+        <span className={className}>{String(value)}</span>
       );
 
     case "number":
