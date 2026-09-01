@@ -8,12 +8,40 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 let pool: Pool | undefined;
 
+/**
+ * A managed Postgres needs TLS, and a local one on a socket does not. Decide
+ * from the host rather than making every environment carry a flag.
+ */
+function sslFor(connectionString: string): { rejectUnauthorized: boolean } | false {
+  let host: string;
+  try {
+    host = new URL(connectionString).hostname;
+  } catch {
+    return false;
+  }
+
+  const local = host === "localhost" || host === "127.0.0.1" || host === "::1" || host === "";
+  if (local) return false;
+
+  // Some managed providers terminate TLS with a certificate that is not in
+  // Node's trust store. Verification stays on unless it is explicitly waived.
+  return { rejectUnauthorized: process.env.DATABASE_SSL_NO_VERIFY !== "1" };
+}
+
 /** The application pool. Connects as a role without bypassrls. */
 export function getPool(): Pool {
   if (!pool) {
     const connectionString = process.env.DATABASE_URL;
     if (!connectionString) throw new Error("DATABASE_URL is not set");
-    pool = new Pool({ connectionString, max: 10 });
+    pool = new Pool({
+      connectionString,
+      ssl: sslFor(connectionString),
+      // Serverless runs many short-lived instances against a shared pooler, so
+      // each one keeps only a small number of connections and lets them go.
+      max: Number(process.env.DATABASE_POOL_MAX ?? 5),
+      idleTimeoutMillis: 10_000,
+      connectionTimeoutMillis: 10_000,
+    });
   }
   return pool;
 }
@@ -65,7 +93,7 @@ export async function withoutTenant<T>(fn: (db: Db) => Promise<T>): Promise<T> {
 export function createAdminPool(): Pool {
   const connectionString = process.env.DATABASE_ADMIN_URL;
   if (!connectionString) throw new Error("DATABASE_ADMIN_URL is not set");
-  return new Pool({ connectionString, max: 4 });
+  return new Pool({ connectionString, ssl: sslFor(connectionString), max: 4 });
 }
 
 export async function closePool(): Promise<void> {
