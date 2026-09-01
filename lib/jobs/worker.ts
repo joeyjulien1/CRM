@@ -13,6 +13,15 @@ export async function startWorkers(): Promise<void> {
     }
   });
 
+  const { registerAutomationWorker } = await import("@/lib/automations/worker");
+  await registerAutomationWorker(boss);
+
+  const { registerImportWorker } = await import("@/lib/import/worker");
+  await registerImportWorker(boss);
+
+  const { registerEmailWorkers } = await import("@/lib/email/worker");
+  await registerEmailWorkers(boss);
+
   console.log("Workers started");
 }
 

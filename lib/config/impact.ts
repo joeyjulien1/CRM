@@ -164,7 +164,10 @@ async function countRecordsWithValues(
         eq(records.tenantId, tenantId),
         eq(records.objectKey, objectKey),
         sql`${records.deletedAt} is null`,
-        sql`${records.data} ->> ${fieldId} = any(${values})`,
+        sql`${records.data} ->> ${fieldId} = any(array[${sql.join(
+          values.map((value) => sql`${value}`),
+          sql`, `,
+        )}]::text[])`,
       ),
     );
   return row?.count ?? 0;
