@@ -1,4 +1,8 @@
 import { getPool, sslFor } from "@/lib/db/client";
+import { TENANT_SCOPED_TABLES } from "@/lib/db/schema";
+
+/** Every table the app expects to exist. A missing one means a migration has not run. */
+const EXPECTED_TABLES = [...TENANT_SCOPED_TABLES, "tenants", "users", "roles", "sessions"].sort();
 
 /**
  * Says why the app cannot reach its database.
@@ -94,10 +98,22 @@ export async function GET(): Promise<Response> {
     );
     const row = result.rows[0];
     report.database.connected = true;
-    report.ok = true;
+
+    // A deployment can connect perfectly and still be missing a table, which
+    // then fails one feature at a time rather than announcing itself.
+    const present = await getPool().query<{ table_name: string }>(
+      "select table_name from information_schema.tables where table_schema = 'public'",
+    );
+    const have = new Set(present.rows.map((r) => r.table_name));
+    const missing = EXPECTED_TABLES.filter((name) => !have.has(name));
+    report.ok = missing.length === 0;
 
     return Response.json({
       ...report,
+      schema:
+        missing.length === 0
+          ? "up to date"
+          : `MISSING ${missing.length} table(s): ${missing.join(", ")}. A migration in lib/db/migrations has not been applied to this database.`,
       // The invariant worth checking on every environment: a role that bypasses
       // RLS makes every tenant policy in this codebase decorative.
       tenancy: row?.bypasses_rls

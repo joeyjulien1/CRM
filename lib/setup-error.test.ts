@@ -21,7 +21,7 @@ describe("describing a setup failure", () => {
   });
 
   it("tells an operator the migration has not run", () => {
-    expect(describeSetupFailure({ code: "42P01" })).toMatch(/no tables yet/);
+    expect(describeSetupFailure({ code: "42P01" })).toMatch(/migration .* has not been applied/);
   });
 
   it("leaves a real bug alone so it still throws", () => {

@@ -28,7 +28,7 @@ const BY_CODE: Record<string, string> = {
     "The database rejected the user name in DATABASE_URL. Through a Supabase pooler it must be written as role.project-ref.",
   "3D000": "The database named in DATABASE_URL does not exist.",
   "42P01":
-    "The database has no tables yet. Run the migration in lib/db/migrations before signing up.",
+    "A table this app needs does not exist in the database. A migration in lib/db/migrations has not been applied — check /api/health, which names the missing tables.",
   "42501":
     "The database role in DATABASE_URL lacks a privilege it needs. Re-run the grants at the end of the init migration.",
 };

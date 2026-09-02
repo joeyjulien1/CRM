@@ -38,12 +38,22 @@ export function useConnectors() {
   const refresh = React.useCallback(async () => {
     try {
       const response = await fetch("/api/connectors");
-      if (!response.ok) throw new Error("Connections could not be read.");
-      const body = (await response.json()) as { connectors: ConnectorState[] };
+      const body = (await response.json().catch(() => ({}))) as {
+        connectors?: ConnectorState[];
+        error?: string;
+      };
+
+      if (!response.ok || !body.connectors) {
+        // The server knows why — a missing table, an unreachable database —
+        // and saying so beats asking someone to try again at something that
+        // will keep failing.
+        throw new Error(body.error ?? "Connections could not be read.");
+      }
+
       setConnectors(body.connectors);
       setError(null);
-    } catch {
-      setError("Connections could not be read. Try again.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Connections could not be read.");
     } finally {
       setLoading(false);
     }
