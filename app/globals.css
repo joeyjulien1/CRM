@@ -112,6 +112,19 @@
    Density layer — forked. Set data-density once on a route group's layout root.
    Nothing below this line references a raw px value.
    --------------------------------------------------------------------------- */
+/*
+ * Density lives on a container so two route groups can differ. That leaves
+ * anything rendered outside those containers — a portal on document.body —
+ * with no value at all, which reads as a styling bug rather than a missing
+ * variable, because the colours are on :root and keep working.
+ *
+ * So :root carries the site scale as a floor. Nothing is ever unstyled; a
+ * portal that escapes its container degrades to the larger, safer scale rather
+ * than to a browser default. Portals should still be given their density
+ * container — see components/ui/popover.tsx — this is the safety net, not the
+ * mechanism.
+ */
+:root,
 [data-density="site"] {
   --space-1: 8px;
   --space-2: 16px;

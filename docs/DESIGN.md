@@ -80,13 +80,17 @@ file is structural and stays.
 Set `data-density` once on the layout root of each route group. Nothing below that line should
 reference a raw px value.
 
-**Anything that renders through a portal must stay inside that element.** These variables live on
-the `[data-density]` container, not on `:root`, so a component portalled to `document.body` resolves
-every one of them to nothing: type falls back to the browser's 16px and controls lose their height,
-while colours — which are on `:root` — keep working, so it looks like a styling bug rather than a
-missing variable. `components/ui/popover.tsx` therefore does not portal. A future dialog or tooltip
-has the same choice to make: stay in the tree, or portal into the density container rather than the
-body.
+**A portal must be given its density container.** These variables live on the `[data-density]`
+element so two route groups can differ, which means a component portalled to `document.body` is
+outside all of them. Colours are on `:root` and keep working, so the failure looks like a styling
+bug rather than a missing variable.
+
+Two things guard against it. `:root` carries the site scale as a floor, so nothing is ever unstyled
+— an escaped portal degrades to the larger, safer scale rather than to a browser default. And a
+portalling component resolves its container from its trigger (`element.closest("[data-density]")`)
+rather than defaulting to the body, which keeps both the escape from `overflow` clipping and the
+right scale. `components/ui/popover.tsx` is the worked example; a dialog or tooltip should do the
+same.
 
 ## Semantic layer
 
