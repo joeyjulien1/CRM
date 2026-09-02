@@ -52,6 +52,17 @@ export interface ToolContext {
   /** Import tools hand back a proposal rather than a config patch. */
   onImportProposal?: (proposal: ImportProposal) => void;
   sampleImportFile?: (fileId: string) => Promise<{ headers: string[]; rows: string[][] }>;
+  /** Which third-party accounts this user has connected, and their labels. */
+  connections?: { provider: string; label: string; connected: boolean; account?: string }[];
+  /** Asks the UI to offer a connection. Never performs one. */
+  onConnectRequest?: (request: ConnectRequest) => void;
+}
+
+export interface ConnectRequest {
+  provider: string;
+  label: string;
+  /** Why this account is needed, in the user's terms. */
+  reason: string;
 }
 
 export interface ImportProposal {
@@ -71,6 +82,28 @@ export interface ToolOutcome {
 }
 
 export const AGENT_TOOLS: Anthropic.Tool[] = [
+  {
+    name: "list_connections",
+    description:
+      "List the third-party accounts this user has connected, and which are available to connect. Check this before attempting anything that needs one.",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "request_connection",
+    description:
+      "Ask the user to connect a third-party account, when a task needs one they have not connected. This offers a button in the conversation; it does not connect anything itself. Say plainly why the account is needed.",
+    input_schema: {
+      type: "object",
+      properties: {
+        provider: { type: "string", description: "Provider key, as returned by list_connections." },
+        reason: {
+          type: "string",
+          description: "Why this account is needed, in the user's terms, in one sentence.",
+        },
+      },
+      required: ["provider", "reason"],
+    },
+  },
   {
     name: "get_config",
     description: "Read the tenant's current resolved configuration.",
@@ -354,6 +387,50 @@ export async function runTool(
 
   try {
     switch (name) {
+      case "list_connections": {
+        const list = context.connections ?? [];
+        return {
+          patches: [],
+          message: JSON.stringify(
+            list.map((c) => ({
+              provider: c.provider,
+              label: c.label,
+              connected: c.connected,
+              ...(c.account ? { account: c.account } : {}),
+            })),
+          ),
+        };
+      }
+
+      case "request_connection": {
+        const provider = String(input.provider ?? "");
+        const known = (context.connections ?? []).find((c) => c.provider === provider);
+        if (!known) {
+          return {
+            patches: [],
+            message: `No connector called '${provider}'. Call list_connections for the available ones.`,
+            isError: true,
+          };
+        }
+        if (known.connected) {
+          return {
+            patches: [],
+            message: `${known.label} is already connected as ${known.account}. Continue with the task.`,
+          };
+        }
+
+        context.onConnectRequest?.({
+          provider,
+          label: known.label,
+          reason: String(input.reason ?? `Connecting ${known.label} is needed to continue.`),
+        });
+
+        return {
+          patches: [],
+          message: `Offered ${known.label} to the user. Stop here and wait — do not assume it is connected.`,
+        };
+      }
+
       case "get_config":
         return { patches: [], message: JSON.stringify(config) };
 

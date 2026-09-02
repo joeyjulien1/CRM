@@ -71,7 +71,7 @@ export default async function EmailSettingsPage({
 
       {configured ? (
         <Link
-          href="/api/integrations/gmail/connect"
+          href="/api/connectors/gmail/connect"
           className="inline-block h-control rounded bg-accent px-3 py-2 text-sm text-accent-fg hover:bg-accent-hover"
         >
           Connect Gmail

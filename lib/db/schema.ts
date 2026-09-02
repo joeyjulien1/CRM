@@ -265,7 +265,46 @@ export const importJobs = pgTable(
 );
 
 /* -------------------------------------------------------------------------- */
-/* Email — per-user OAuth, metadata plus a pointer                             */
+/* Connections — every third-party OAuth grant, one shape for all providers    */
+/*                                                                             */
+/* Which providers exist is configuration, not schema: see                     */
+/* lib/connectors/registry.ts. Adding one must never mean a migration.         */
+/* -------------------------------------------------------------------------- */
+
+export const connections = pgTable(
+  "connections",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    /** OAuth is granted by a person, not by a workspace. */
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    provider: text("provider").notNull(),
+    /** The provider's own id for the account, stable across renames. */
+    externalAccountId: text("external_account_id").notNull(),
+    /** What to show the user: an address or workspace name. Never a token. */
+    accountLabel: text("account_label").notNull(),
+    /** Encrypted at rest, and never returned to the client. */
+    accessTokenEnc: text("access_token_enc"),
+    refreshTokenEnc: text("refresh_token_enc"),
+    accessTokenExpiresAt: timestamp("access_token_expires_at", { withTimezone: true }),
+    /** Exactly what was granted, so the agent can tell what it may attempt. */
+    scopes: jsonb("scopes").$type<string[]>().notNull().default([]),
+    /** 'active' | 'expired' | 'revoked' */
+    status: text("status").notNull().default("active"),
+    connectedAt: timestamp("connected_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("connections_unique_idx").on(t.tenantId, t.userId, t.provider, t.externalAccountId),
+    index("connections_lookup_idx").on(t.tenantId, t.userId, t.provider),
+  ],
+);
+
+/* -------------------------------------------------------------------------- */
+/* Email — sync state for a mailbox; the grant itself is a connection          */
 /* -------------------------------------------------------------------------- */
 
 export const emailAccounts = pgTable(
@@ -280,10 +319,13 @@ export const emailAccounts = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     provider: text("provider").notNull(),
     address: text("address").notNull(),
-    /** Encrypted at rest. Never returned to the client. */
-    refreshTokenEnc: text("refresh_token_enc").notNull(),
-    accessTokenEnc: text("access_token_enc"),
-    accessTokenExpiresAt: timestamp("access_token_expires_at", { withTimezone: true }),
+    /**
+     * The OAuth grant lives in `connections`. This row holds only what mail
+     * sync needs to know, so there is one place a token can be revoked from.
+     */
+    connectionId: uuid("connection_id")
+      .notNull()
+      .references(() => connections.id, { onDelete: "cascade" }),
     historyId: text("history_id"),
     storeBodies: boolean("store_bodies").notNull().default(false),
     backfillCursor: text("backfill_cursor"),
@@ -389,6 +431,7 @@ export const TENANT_SCOPED_TABLES = [
   "agent_turns",
   "automation_runs",
   "config_versions",
+  "connections",
   "email_accounts",
   "email_links",
   "email_messages",

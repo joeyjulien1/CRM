@@ -21,7 +21,9 @@ describe("the agent's surface", () => {
         "delete_view",
         "get_config",
         "get_schema_summary",
+        "list_connections",
         "propose_import_mapping",
+        "request_connection",
         "remove_field",
         "reorder_fields",
         "set_automation_enabled",
@@ -38,6 +40,14 @@ describe("the agent's surface", () => {
     expect(names).not.toContain("get_records");
     expect(names).not.toContain("search_records");
     expect(names).not.toContain("read_record");
+  });
+
+  it("has no tool that connects an account by itself", () => {
+    const names = AGENT_TOOLS.map((tool) => tool.name);
+    // Consent is the user's to give. The agent may only ask.
+    expect(names).not.toContain("connect_account");
+    expect(names).not.toContain("disconnect_account");
+    expect(names).toContain("request_connection");
   });
 
   it("has no tool for changing a field's type", () => {
@@ -176,5 +186,56 @@ describe("tools stage patches rather than results", () => {
 
     expect(outcome.patches).toHaveLength(0);
     expect(proposed).toMatchObject({ fileId: "file-1", objectKey: "contact" });
+  });
+});
+
+describe("asking for a connection", () => {
+  const withConnections = (connected: boolean): ToolContext => ({
+    ...context(),
+    connections: [
+      { provider: "gmail", label: "Gmail", connected, ...(connected ? { account: "sam@example.com" } : {}) },
+    ],
+  });
+
+  it("offers the connection to the user rather than making one", async () => {
+    let requested: { provider: string; reason: string } | undefined;
+    const outcome = await runTool(
+      "request_connection",
+      { provider: "gmail", reason: "Reading your email needs Gmail." },
+      { ...withConnections(false), onConnectRequest: (r) => (requested = r) },
+    );
+
+    expect(requested?.provider).toBe("gmail");
+    expect(outcome.patches).toEqual([]);
+    // The model is told to stop, so it cannot narrate a connection it lacks.
+    expect(outcome.message).toMatch(/wait|do not assume/i);
+  });
+
+  it("tells the agent to carry on when the account is already connected", async () => {
+    let requested = false;
+    const outcome = await runTool(
+      "request_connection",
+      { provider: "gmail", reason: "needed" },
+      { ...withConnections(true), onConnectRequest: () => (requested = true) },
+    );
+
+    expect(requested).toBe(false);
+    expect(outcome.message).toMatch(/already connected/i);
+  });
+
+  it("refuses a provider that does not exist", async () => {
+    const outcome = await runTool(
+      "request_connection",
+      { provider: "myspace", reason: "why not" },
+      withConnections(false),
+    );
+    expect(outcome.isError).toBe(true);
+  });
+
+  it("reports connection status without leaking a token", async () => {
+    const outcome = await runTool("list_connections", {}, withConnections(true));
+    const parsed = JSON.parse(outcome.message) as Record<string, unknown>[];
+    expect(parsed[0]).toMatchObject({ provider: "gmail", connected: true });
+    expect(outcome.message).not.toMatch(/token/i);
   });
 });

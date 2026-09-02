@@ -72,6 +72,23 @@ are not configuration, so there is no config version to write. They return a pro
 through the same confirm-before-anything-happens path, and `apply_import` then runs as a background
 job. Everything else on this page returns a patch.
 
+## Connectors
+
+| Tool | Arguments |
+|---|---|
+| `list_connections` | — |
+| `request_connection` | provider, reason |
+
+`request_connection` offers a button in the conversation. It does not connect anything: the OAuth
+grant is the user's to give, in a popup, and the agent never sees a token or a scope it did not ask
+the user for. This is the one tool that returns neither a patch nor data — it asks for consent.
+
+The provider list is configuration (`lib/connectors/registry.ts`), not part of this contract. Adding
+Slack is a config entry; it is not a new tool and not a new component.
+
+A task that needs an account the user has not connected ends with `request_connection` and stops.
+Carrying on as though the account were connected is the failure mode to design against.
+
 ## Read tools
 
 | Tool | Returns |

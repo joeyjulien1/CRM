@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { withTenant } from "@/lib/db/client";
 import { emailAccounts } from "@/lib/db/schema";
-import { decryptToken, encryptToken } from "./crypto";
+import { accessTokenFor as connectionAccessToken } from "@/lib/connectors/oauth";
 
 /**
  * Gmail over its REST API. One integration, done properly, rather than two done
@@ -75,49 +75,24 @@ export async function exchangeCode(code: string): Promise<{
   };
 }
 
-/** Returns a usable access token, refreshing and re-storing it when stale. */
+/**
+ * A usable access token for a mailbox.
+ *
+ * The grant itself lives in `connections`, which is where refreshing and
+ * re-storing happen for every provider alike. A mailbox row only knows which
+ * connection it belongs to.
+ */
 export async function accessTokenFor(tenantId: string, accountId: string): Promise<string> {
   const [account] = await withTenant(tenantId, (db) =>
     db
-      .select()
+      .select({ connectionId: emailAccounts.connectionId })
       .from(emailAccounts)
       .where(and(eq(emailAccounts.tenantId, tenantId), eq(emailAccounts.id, accountId)))
       .limit(1),
   );
   if (!account) throw new Error("That mailbox is no longer connected.");
 
-  const stillValid =
-    account.accessTokenEnc &&
-    account.accessTokenExpiresAt &&
-    account.accessTokenExpiresAt.getTime() > Date.now() + 60_000;
-
-  if (stillValid) return decryptToken(account.accessTokenEnc!);
-
-  const response = await fetch(TOKEN_URL, {
-    method: "POST",
-    headers: { "content-type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      refresh_token: decryptToken(account.refreshTokenEnc),
-      client_id: process.env.GOOGLE_CLIENT_ID ?? "",
-      client_secret: process.env.GOOGLE_CLIENT_SECRET ?? "",
-      grant_type: "refresh_token",
-    }),
-  });
-
-  if (!response.ok) throw new Error(`That mailbox needs reconnecting: ${await response.text()}`);
-  const token = (await response.json()) as { access_token: string; expires_in: number };
-
-  await withTenant(tenantId, (db) =>
-    db
-      .update(emailAccounts)
-      .set({
-        accessTokenEnc: encryptToken(token.access_token),
-        accessTokenExpiresAt: new Date(Date.now() + token.expires_in * 1000),
-      })
-      .where(and(eq(emailAccounts.tenantId, tenantId), eq(emailAccounts.id, accountId))),
-  );
-
-  return token.access_token;
+  return connectionAccessToken(tenantId, account.connectionId);
 }
 
 export interface GmailMessage {

@@ -80,6 +80,14 @@ file is structural and stays.
 Set `data-density` once on the layout root of each route group. Nothing below that line should
 reference a raw px value.
 
+**Anything that renders through a portal must stay inside that element.** These variables live on
+the `[data-density]` container, not on `:root`, so a component portalled to `document.body` resolves
+every one of them to nothing: type falls back to the browser's 16px and controls lose their height,
+while colours — which are on `:root` — keep working, so it looks like a styling bug rather than a
+missing variable. `components/ui/popover.tsx` therefore does not portal. A future dialog or tooltip
+has the same choice to make: stay in the tree, or portal into the density container rather than the
+body.
+
 ## Semantic layer
 
 Components reference these, never the raw ramp. Changing the brand should require editing only

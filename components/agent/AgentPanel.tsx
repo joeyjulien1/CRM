@@ -6,6 +6,9 @@ import type { Config, ConfigPatch, ImpactSummary } from "@/lib/config/types";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
 import { ConfigDiff } from "./ConfigDiff";
+import { ConnectPrompt } from "./ConnectPrompt";
+import { ConnectorsPanel } from "./ConnectorsPanel";
+import { useConnectors } from "./useConnectors";
 import { cn } from "@/lib/utils";
 
 /**
@@ -17,6 +20,11 @@ import { cn } from "@/lib/utils";
 interface Turn {
   role: "user" | "assistant";
   text: string;
+  /**
+   * Set when the agent asked for an account it does not have. The card renders
+   * in the conversation, so the task it interrupted stays on screen.
+   */
+  connect?: { provider: string; label: string; reason: string };
 }
 
 interface PendingPatch {
@@ -49,6 +57,7 @@ export function AgentPanel({
   const [error, setError] = React.useState<string | null>(null);
   const [budget, setBudget] = React.useState<{ remaining: number; fraction: number } | null>(null);
   const endRef = React.useRef<HTMLDivElement>(null);
+  const connectors = useConnectors();
 
   React.useEffect(() => {
     if (initialPrompt) setInput(initialPrompt);
@@ -95,6 +104,7 @@ export function AgentPanel({
             | { type: "text"; delta: string }
             | { type: "patch"; patches: ConfigPatch[]; impact: ImpactSummary }
             | { type: "budget"; remaining: number; fraction: number }
+            | { type: "connect_required"; provider: string; label: string; reason: string }
             | { type: "error"; message: string };
 
           if (event.type === "text") {
@@ -108,6 +118,9 @@ export function AgentPanel({
             setPending({ patches: event.patches, impact: event.impact });
           } else if (event.type === "budget") {
             setBudget({ remaining: event.remaining, fraction: event.fraction });
+          } else if (event.type === "connect_required") {
+            const { provider, label, reason } = event;
+            setTurns((current) => [...current, { role: "assistant", text: "", connect: { provider, label, reason } }]);
           } else if (event.type === "error") {
             setError(event.message);
           }
@@ -188,9 +201,25 @@ export function AgentPanel({
                 <p className="mb-1 text-xs uppercase tracking-wide text-content-muted">
                   {turn.role === "user" ? "You" : "Agent"}
                 </p>
-                <p className="whitespace-pre-wrap">
-                  {turn.text || (streaming && index === turns.length - 1 ? "…" : "")}
-                </p>
+                {turn.connect ? (
+                  <ConnectPrompt
+                    provider={turn.connect.provider}
+                    label={turn.connect.label}
+                    reason={turn.connect.reason}
+                    connected={
+                      connectors.connectors.find((c) => c.provider === turn.connect!.provider)?.connected ?? false
+                    }
+                    account={
+                      connectors.connectors.find((c) => c.provider === turn.connect!.provider)?.account
+                    }
+                    busy={connectors.busy === turn.connect.provider}
+                    onConnect={connectors.connect}
+                  />
+                ) : (
+                  <p className="whitespace-pre-wrap">
+                    {turn.text || (streaming && index === turns.length - 1 ? "…" : "")}
+                  </p>
+                )}
               </div>
             ))}
 
@@ -240,7 +269,17 @@ export function AgentPanel({
           aria-label="Ask the agent"
           disabled={streaming}
         />
-        <div className="mt-2 flex justify-end">
+        {/* Connecting an account belongs next to the message that needs it,
+            not behind a settings page in another part of the product. */}
+        <div className="mt-2 flex items-center justify-between">
+          <ConnectorsPanel
+            connectors={connectors.connectors}
+            loading={connectors.loading}
+            busy={connectors.busy}
+            error={connectors.error}
+            onConnect={connectors.connect}
+            onDisconnect={connectors.disconnect}
+          />
           <Button type="submit" variant="primary" size="sm" disabled={streaming || !input.trim()}>
             {streaming ? "Thinking…" : "Send"}
           </Button>

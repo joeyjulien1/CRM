@@ -49,6 +49,7 @@ How to work:
 - A field's type cannot be changed. If someone needs a different type, propose a new field and offer to backfill it.
 - Use get_schema_summary when you need ids you have not been given below.
 - Views can only be a table, a board, or a detail view. There is nothing else to offer.
+- A task needing a third-party account: call list_connections first. If it is not connected, call request_connection with a one-sentence reason and stop there. You cannot connect anything yourself, and you must never carry on as though an account were connected.
 
 This workspace right now:
 

@@ -5,6 +5,7 @@ import { countByObject } from "@/lib/runtime/records";
 import { runAgentTurn } from "@/lib/agent/execute";
 import { BudgetError } from "@/lib/agent/budget";
 import { readImportSample } from "@/lib/import/sample";
+import { connectorStates } from "@/lib/connectors/status";
 
 /** Newline-delimited JSON, so the panel can render text as it arrives. */
 export async function POST(request: Request): Promise<Response> {
@@ -19,6 +20,17 @@ export async function POST(request: Request): Promise<Response> {
     config: (await getCurrentVersion(db, session.tenantId)).config,
     counts: await countByObject(db, session.tenantId),
   }));
+
+  // The agent is told which accounts exist and whether they are connected —
+  // never a token, and never a way to grant one itself.
+  const connections = (await connectorStates(session.tenantId, session.userId))
+    .filter((state) => state.configured)
+    .map((state) => ({
+      provider: state.provider,
+      label: state.label,
+      connected: state.connected,
+      ...(state.account ? { account: state.account } : {}),
+    }));
 
   const encoder = new TextEncoder();
 
@@ -36,10 +48,14 @@ export async function POST(request: Request): Promise<Response> {
           prompt,
           onText: (delta) => send({ type: "text", delta }),
           sampleImportFile: (fileId) => readImportSample(session.tenantId, fileId),
+          connections,
         });
 
         if (result.patches.length > 0 && result.impact) {
           send({ type: "patch", patches: result.patches, impact: result.impact });
+        }
+        if (result.connectRequest) {
+          send({ type: "connect_required", ...result.connectRequest });
         }
         if (result.failure) {
           send({

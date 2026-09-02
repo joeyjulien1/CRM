@@ -6,7 +6,7 @@ import { computeImpact } from "@/lib/config/impact";
 import type { Config, ConfigPatch, ImpactSummary } from "@/lib/config/types";
 import { assertWithinBudget, getBudget, recordTurn, type BudgetState } from "./budget";
 import { systemPrompt } from "./prompt";
-import { AGENT_TOOLS, runTool, type ImportProposal, type ToolContext } from "./tools";
+import { AGENT_TOOLS, runTool, type ConnectRequest, type ImportProposal, type ToolContext } from "./tools";
 
 const MODEL = process.env.AGENT_MODEL ?? "claude-opus-5";
 const MAX_TOKENS = 16000;
@@ -21,6 +21,7 @@ export interface AgentTurnInput {
   prompt: string;
   onText?: (delta: string) => void;
   sampleImportFile?: ToolContext["sampleImportFile"];
+  connections?: ToolContext["connections"];
 }
 
 export interface AgentTurnResult {
@@ -28,6 +29,8 @@ export interface AgentTurnResult {
   patches: ConfigPatch[];
   impact?: ImpactSummary;
   importProposal?: ImportProposal;
+  /** Set when the agent asked the user to connect a third-party account. */
+  connectRequest?: ConnectRequest;
   history: Anthropic.MessageParam[];
   budget: BudgetState;
   /** Set when the agent could not produce a patch the config would accept. */
@@ -50,12 +53,17 @@ export async function runAgentTurn(input: AgentTurnInput): Promise<AgentTurnResu
   const system = systemPrompt(config, counts);
 
   let importProposal: ImportProposal | undefined;
+  let connectRequest: ConnectRequest | undefined;
   const context: ToolContext = {
     config,
     counts,
     sampleImportFile: input.sampleImportFile,
+    connections: input.connections,
     onImportProposal: (proposal) => {
       importProposal = proposal;
+    },
+    onConnectRequest: (request) => {
+      connectRequest = request;
     },
   };
 
@@ -187,6 +195,7 @@ export async function runAgentTurn(input: AgentTurnInput): Promise<AgentTurnResu
     patches,
     impact,
     importProposal,
+    connectRequest,
     history: messages,
     budget: nextBudget ?? budget,
     failure,
