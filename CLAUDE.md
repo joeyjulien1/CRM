@@ -45,10 +45,14 @@ components/
   ui/                   shadcn primitives, unmodified
   renderers/            the nine config-driven renderers — see docs/COMPONENTS.md
   agent/                chat panel, config diff viewer
+  backend/              the blueprint canvas — see docs/BACKEND-TAB.md
+  app/                  the frontend/backend tab switch
 lib/
   config/               schema, validation, patch application, versioning
   agent/                tool definitions, execution loop, guardrails
   runtime/              config -> query, config -> view resolution
+  templates/            starting configurations per business — see docs/TEMPLATES.md
+  backend/              config -> blueprint graph
   db/                   drizzle schema, migrations, RLS policies
 docs/                   read these
 ```
@@ -58,6 +62,9 @@ docs/                   read these
 **Before writing a renderer or any UI**: read `docs/COMPONENTS.md` and `docs/DESIGN.md`. Do not
 invent a component that isn't in the inventory. If a feature seems to need a tenth renderer,
 stop and raise it — the inventory is a deliberate ceiling on what the agent can generate.
+
+**Before adding a template**: read `docs/TEMPLATES.md`. A template is a patch set and a hidden
+brief, not a code path — adding one touches two files and no renderer.
 
 **Before touching the agent**: read `docs/AGENT-TOOLS.md`. Adding a tool is a design decision,
 not an implementation detail.

@@ -2,7 +2,8 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
 import { withTenant } from "@/lib/db/client";
 import { getHistory } from "@/lib/config/version";
-import { describePatch } from "@/lib/config/describe";
+import { describePatches } from "@/lib/config/describe";
+import { authorLabel } from "@/lib/templates";
 import { RollbackButton } from "./RollbackButton";
 
 export default async function HistoryPage() {
@@ -20,8 +21,11 @@ export default async function HistoryPage() {
         nothing is ever lost.
       </p>
 
+      {/* A patch is described against the configuration it changed — the
+          version before it — so "removes the New stage" names the stage that
+          was there, not the one that replaced it. */}
       <ol className="flex flex-col gap-3">
-        {versions.map((version) => (
+        {versions.map((version, index) => (
           <li key={version.id} className="rounded border border-edge px-4 py-3">
             <div className="flex items-baseline justify-between gap-4">
               <div className="min-w-0">
@@ -32,7 +36,7 @@ export default async function HistoryPage() {
                   ) : null}
                 </p>
                 <p className="text-xs text-content-muted">
-                  Version {version.version} · {version.author} ·{" "}
+                  Version {version.version} · {authorLabel(version.author)} ·{" "}
                   {new Date(version.createdAt).toLocaleString()}
                 </p>
               </div>
@@ -44,9 +48,12 @@ export default async function HistoryPage() {
 
             {version.patch.length > 0 ? (
               <ul className="mt-2 flex flex-col gap-1">
-                {version.patch.map((patch, index) => (
-                  <li key={index} className="text-xs text-content-secondary">
-                    {describePatch(patch, version.config)}
+                {describePatches(
+                  version.patch,
+                  versions[index + 1]?.config ?? version.config,
+                ).map((line, patchIndex) => (
+                  <li key={patchIndex} className="text-xs text-content-secondary">
+                    {line}
                   </li>
                 ))}
               </ul>

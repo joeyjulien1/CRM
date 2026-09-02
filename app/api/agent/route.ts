@@ -5,6 +5,7 @@ import { countByObject } from "@/lib/runtime/records";
 import { runAgentTurn } from "@/lib/agent/execute";
 import { BudgetError } from "@/lib/agent/budget";
 import { readImportSample } from "@/lib/import/sample";
+import { activeTemplate } from "@/lib/templates/apply";
 
 /** Newline-delimited JSON, so the panel can render text as it arrives. */
 export async function POST(request: Request): Promise<Response> {
@@ -15,9 +16,10 @@ export async function POST(request: Request): Promise<Response> {
   const prompt = body.prompt?.trim();
   if (!prompt) return new Response("Ask the agent something.", { status: 400 });
 
-  const { config, counts } = await withTenant(session.tenantId, async (db) => ({
+  const { config, counts, template } = await withTenant(session.tenantId, async (db) => ({
     config: (await getCurrentVersion(db, session.tenantId)).config,
     counts: await countByObject(db, session.tenantId),
+    template: await activeTemplate(db, session.tenantId),
   }));
 
   const encoder = new TextEncoder();
@@ -34,6 +36,7 @@ export async function POST(request: Request): Promise<Response> {
           counts,
           history: [],
           prompt,
+          templateBrief: template?.brief,
           onText: (delta) => send({ type: "text", delta }),
           sampleImportFile: (fileId) => readImportSample(session.tenantId, fileId),
         });

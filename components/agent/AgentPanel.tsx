@@ -28,6 +28,8 @@ export interface AgentPanelProps {
   config: Config;
   counts: Record<string, number>;
   canEditConfig: boolean;
+  /** Examples written for this workspace's template. Falls back to derived ones. */
+  suggestions?: string[];
   initialPrompt?: string;
   onClose: () => void;
   onApplied: () => void;
@@ -37,6 +39,7 @@ export function AgentPanel({
   config,
   counts,
   canEditConfig,
+  suggestions: given,
   initialPrompt,
   onClose,
   onApplied,
@@ -141,7 +144,10 @@ export function AgentPanel({
     }
   };
 
-  const suggestions = React.useMemo(() => suggestPrompts(config, counts), [config, counts]);
+  const suggestions = React.useMemo(
+    () => (given && given.length > 0 ? given.slice(0, 3) : suggestPrompts(config, counts)),
+    [config, counts, given],
+  );
   const lowBudget = budget !== null && budget.fraction >= 0.8;
 
   return (

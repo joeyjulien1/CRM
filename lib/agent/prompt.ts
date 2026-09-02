@@ -5,7 +5,17 @@ import type { Config } from "@/lib/config/types";
  * sends counts and shapes rather than the whole config — a tool fetches the
  * detail when a change actually needs it.
  */
-export function systemPrompt(config: Config, counts: Record<string, number>): string {
+export function systemPrompt(
+  config: Config,
+  counts: Record<string, number>,
+  /**
+   * The brief behind the template this workspace started from. It is never
+   * shown to the user and never leaves the server: it exists so a change asked
+   * for in the customer's vocabulary — "add a second pipeline for lettings" —
+   * lands in the shape their business actually uses.
+   */
+  templateBrief?: string,
+): string {
   const objects = config.objects
     .map((object) => {
       const fields = object.fields
@@ -62,5 +72,7 @@ Pipelines
 ${pipelines || "- none"}
 
 Automations
-${automations || "- none"}`;
+${automations || "- none"}
+
+${templateBrief ? `What this business is:\n${templateBrief}` : ""}`.trimEnd();
 }

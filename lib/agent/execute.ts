@@ -21,6 +21,8 @@ export interface AgentTurnInput {
   prompt: string;
   onText?: (delta: string) => void;
   sampleImportFile?: ToolContext["sampleImportFile"];
+  /** The brief behind this workspace's template. Server-side only. */
+  templateBrief?: string;
 }
 
 export interface AgentTurnResult {
@@ -47,7 +49,7 @@ export async function runAgentTurn(input: AgentTurnInput): Promise<AgentTurnResu
   const budget = await withTenant(tenantId, (db) => assertWithinBudget(db, tenantId));
 
   const client = new Anthropic();
-  const system = systemPrompt(config, counts);
+  const system = systemPrompt(config, counts, input.templateBrief);
 
   let importProposal: ImportProposal | undefined;
   const context: ToolContext = {

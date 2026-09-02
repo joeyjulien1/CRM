@@ -50,19 +50,20 @@ export async function signUpAction(_: AuthFormState, formData: FormData): Promis
     return { error: "Use a password of at least 10 characters." };
   }
 
-  let destination: string;
   try {
-    const session = await signUp({
+    await signUp({
       email: String(formData.get("email") ?? ""),
       password,
       name: String(formData.get("name") ?? ""),
       workspace: String(formData.get("workspace") ?? ""),
     });
-    destination = await workspacePath(session.tenantId);
   } catch (error) {
     return authFailure(error);
   }
-  redirect(destination);
+
+  // A new workspace lands on the templates, not on an empty contacts table.
+  // Picking one is the fastest route to a CRM that looks like the business.
+  redirect("/start");
 }
 
 export async function signOutAction(): Promise<void> {

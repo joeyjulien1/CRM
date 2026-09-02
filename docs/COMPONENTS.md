@@ -107,6 +107,14 @@ None of them fetch. Data arrives as props from a server component or a resolver 
 what makes them testable against fixture config, which is the only sane way to verify
 config-driven UI.
 
+## Not renderers
+
+Three surfaces render **configuration** rather than customer records, and they are deliberately
+outside the count: `ConfigDiff` above, the configuration history, and the blueprint canvas on
+the backend tab (`docs/BACKEND-TAB.md`). None of them can be produced by a `ViewConfig`, and the
+agent cannot emit one. Adding a surface here is not a way around the ceiling below — if the
+thing being rendered is records, it is a renderer and the ceiling applies.
+
 ## The rule
 
 If you're about to build a view that isn't one of these, the answer is almost always to extend

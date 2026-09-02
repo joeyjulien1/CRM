@@ -1,5 +1,12 @@
-import { findField, findObject } from "./patch";
-import type { AutomationAction, AutomationConfig, Config, ConfigPatch } from "./types";
+import { applyPatches, findField, findObject } from "./patch";
+import type {
+  AutomationAction,
+  AutomationConfig,
+  Config,
+  ConfigPatch,
+  FieldConfig,
+  FilterCondition,
+} from "./types";
 
 /**
  * Turns a patch into a sentence a salesperson can approve. ConfigDiff shows
@@ -10,7 +17,7 @@ export function describePatch(patch: ConfigPatch, before: Config): string {
     case "add_field": {
       const object = findObject(before, patch.objectKey);
       const required = patch.field.required ? ", required" : "";
-      return `Adds a ${patch.field.label} field (${fieldTypeLabel(patch.field.type)}${required}) to ${object?.labelPlural ?? patch.objectKey}`;
+      return `Adds ${article(patch.field.label)} ${patch.field.label} field (${fieldTypeLabel(patch.field.type)}${required}) to ${object?.labelPlural ?? patch.objectKey}`;
     }
 
     case "update_field": {
@@ -72,12 +79,12 @@ export function describePatch(patch: ConfigPatch, before: Config): string {
     }
 
     case "create_pipeline":
-      return `Adds the ${patch.pipeline.name} pipeline with ${patch.pipeline.stages.length} stages: ${list(patch.pipeline.stages.map((s) => s.label))}`;
+      return `Adds the ${pipelineName(patch.pipeline.name)} with ${patch.pipeline.stages.length} stages: ${list(patch.pipeline.stages.map((s) => s.label))}`;
 
     case "update_pipeline": {
       const pipeline = before.pipelines.find((p) => p.id === patch.pipelineId);
       if (!pipeline) return `Updates a pipeline`;
-      if (!patch.stages) return `Renames the ${pipeline.name} pipeline to ${patch.name ?? pipeline.name}`;
+      if (!patch.stages) return `Renames the ${pipelineName(pipeline.name)} to ${patch.name ?? pipeline.name}`;
       const nextKeys = new Set(patch.stages.map((s) => s.key));
       const existingKeys = new Set(pipeline.stages.map((s) => s.key));
       const removed = pipeline.stages.filter((s) => !nextKeys.has(s.key)).map((s) => s.label);
@@ -91,7 +98,8 @@ export function describePatch(patch: ConfigPatch, before: Config): string {
         });
         parts.push(`removes ${list(removed)}, moving those records to ${list([...new Set(targets)])}`);
       }
-      return `Changes the ${pipeline.name} pipeline: ${parts.length ? parts.join(", ") : "reorders its stages"}`;
+      const renamed = patch.name && patch.name !== pipeline.name ? [`renames it to ${patch.name}`] : [];
+      return `Changes the ${pipelineName(pipeline.name)}: ${[...renamed, ...parts].join(", ") || "reorders its stages"}`;
     }
 
     case "create_automation":
@@ -110,6 +118,28 @@ export function describePatch(patch: ConfigPatch, before: Config): string {
     case "rollback":
       return `Restores the configuration as it was at version ${patch.toVersion}`;
   }
+}
+
+/**
+ * A set of patches, each described against the configuration the one before it
+ * produced. Describing them all against the same starting config would say
+ * "removes the New stage" about a stage a previous patch already replaced.
+ */
+export function describePatches(patches: ConfigPatch[], before: Config): string[] {
+  const lines: string[] = [];
+  let preview = before;
+
+  for (const patch of patches) {
+    lines.push(describePatch(patch, preview));
+    try {
+      preview = applyPatches(preview, [patch]);
+    } catch {
+      // Describing is not applying: a patch that only validates alongside its
+      // siblings still reads correctly against the config before it.
+    }
+  }
+
+  return lines;
 }
 
 export function describeTrigger(automation: AutomationConfig, before: Config): string {
@@ -145,6 +175,16 @@ export function describeAction(action: AutomationAction): string {
   }
 }
 
+/** "Adds an Account manager field", not "Adds a Account manager field". */
+function article(word: string): string {
+  return /^[aeiou]/i.test(word) ? "an" : "a";
+}
+
+/** "Sales pipeline" is already a pipeline; "Property board" needs saying. */
+function pipelineName(name: string): string {
+  return /pipeline/i.test(name) ? name : `${name} pipeline`;
+}
+
 function fieldTypeLabel(type: string): string {
   const labels: Record<string, string> = {
     text: "text",
@@ -178,4 +218,58 @@ function list(items: string[]): string {
 
 function plural(count: number, word: string): string {
   return count === 1 ? word : `${word}s`;
+}
+
+/**
+ * A condition as a sentence: "Stage is Under offer". Used by the blueprint
+ * canvas and by anything else that has to show a filter to a person rather
+ * than to the query resolver.
+ */
+export function describeCondition(config: Config, condition: FilterCondition): string {
+  const found = findField(config, condition.fieldId);
+  const label = found?.field.label ?? "A field";
+  const phrase = OPERATOR_PHRASES[condition.operator] ?? condition.operator;
+
+  if (condition.operator === "is_true") return `${label} is yes`;
+  if (condition.operator === "is_false") return `${label} is no`;
+  if (condition.operator === "is_empty") return `${label} is empty`;
+  if (condition.operator === "is_not_empty") return `${label} has a value`;
+
+  const value = describeValue(found?.field, condition.value);
+  return `${label} ${phrase} ${value}`.trim();
+}
+
+const OPERATOR_PHRASES: Record<string, string> = {
+  is: "is",
+  is_not: "is not",
+  contains: "contains",
+  not_contains: "does not contain",
+  starts_with: "starts with",
+  gt: "is more than",
+  gte: "is at least",
+  lt: "is less than",
+  lte: "is at most",
+  between: "is between",
+  in_last_days: "was within the last",
+  in_next_days: "falls within the next",
+  is_any_of: "is any of",
+  has_any_of: "has any of",
+  has_all_of: "has all of",
+};
+
+function describeValue(field: FieldConfig | undefined, value: unknown): string {
+  if (value === undefined || value === null) return "";
+
+  if (Array.isArray(value)) return list(value.map((entry) => describeValue(field, entry)));
+
+  if (field?.options) {
+    const option = field.options.find((candidate) => candidate.value === String(value));
+    if (option) return option.label;
+  }
+
+  if (typeof value === "number" && (field?.type === "date" || field?.type === "datetime")) {
+    return `${value} days`;
+  }
+
+  return String(value);
 }
