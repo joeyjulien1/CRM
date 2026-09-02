@@ -1,4 +1,4 @@
-import { getPool } from "@/lib/db/client";
+import { getPool, sslFor } from "@/lib/db/client";
 
 /**
  * Says why the app cannot reach its database.
@@ -17,9 +17,9 @@ export const dynamic = "force-dynamic";
 /** Postgres SQLSTATEs and Node socket errors worth explaining. */
 const DIAGNOSES: Record<string, string> = {
   SELF_SIGNED_CERT_IN_CHAIN:
-    "The database's TLS certificate is not trusted by Node. Supabase's direct host uses its own CA; the pooler host uses a public one. Either connect via the pooler, or set DATABASE_SSL_NO_VERIFY=1 to accept it unverified.",
+    "The database's TLS certificate is signed by a CA this server does not trust. Download the provider's CA certificate (Supabase: Settings -> Database -> SSL configuration) and put its contents in DATABASE_CA_CERT, which keeps the connection verified. DATABASE_SSL_NO_VERIFY=1 also connects, but encrypted-only, with no protection against a machine-in-the-middle.",
   UNABLE_TO_VERIFY_LEAF_SIGNATURE:
-    "The database's TLS certificate could not be verified. Same fix as above.",
+    "The database's TLS certificate could not be verified. Same fix: DATABASE_CA_CERT with the provider's CA certificate, or DATABASE_SSL_NO_VERIFY=1 to accept it unverified.",
   ENOTFOUND:
     "That hostname does not resolve. Check the pooler prefix — Supabase uses aws-0-<region> or aws-1-<region>, and only one of them is yours.",
   ECONNREFUSED: "Nothing is listening on that port. The pooler is 6543; a direct connection is 5432.",
@@ -47,6 +47,18 @@ function describeHost(url: string | undefined): string {
   }
 }
 
+/** Whether the connection is authenticated as well as encrypted. */
+function describeTls(url: string | undefined): string {
+  if (!url) return "unknown";
+  const ssl = sslFor(url);
+  if (ssl === false) return "off (local connection)";
+  if (ssl.ca) return "verified against DATABASE_CA_CERT";
+  if (!ssl.rejectUnauthorized) {
+    return "encrypted but UNVERIFIED (DATABASE_SSL_NO_VERIFY=1) — set DATABASE_CA_CERT to authenticate the server";
+  }
+  return "verified against the system CAs";
+}
+
 export async function GET(): Promise<Response> {
   const databaseUrl = process.env.DATABASE_URL;
 
@@ -62,6 +74,7 @@ export async function GET(): Promise<Response> {
     database: {
       urlSet: Boolean(databaseUrl),
       host: describeHost(databaseUrl),
+      tls: describeTls(databaseUrl),
       connected: false as boolean,
       error: null as string | null,
       diagnosis: null as string | null,

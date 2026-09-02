@@ -20,9 +20,9 @@ const BY_CODE: Record<string, string> = {
   ENETUNREACH:
     "The database address is unreachable, which usually means an IPv6-only host. Use the connection pooler instead.",
   SELF_SIGNED_CERT_IN_CHAIN:
-    "The database's TLS certificate is not trusted here. Connect through the pooler, or set DATABASE_SSL_NO_VERIFY=1 to accept it unverified.",
+    "The database's TLS certificate is signed by a CA this server does not trust. Put the provider's CA certificate in DATABASE_CA_CERT to verify against it, or set DATABASE_SSL_NO_VERIFY=1 to connect encrypted but unverified.",
   UNABLE_TO_VERIFY_LEAF_SIGNATURE:
-    "The database's TLS certificate could not be verified. Connect through the pooler, or set DATABASE_SSL_NO_VERIFY=1.",
+    "The database's TLS certificate could not be verified. Put the provider's CA certificate in DATABASE_CA_CERT, or set DATABASE_SSL_NO_VERIFY=1 to connect encrypted but unverified.",
   "28P01": "The database rejected the password in DATABASE_URL.",
   "28000":
     "The database rejected the user name in DATABASE_URL. Through a Supabase pooler it must be written as role.project-ref.",

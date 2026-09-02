@@ -51,6 +51,12 @@ Serverless needs the transaction-mode connection pooler, which works here becaus
 set with `set_config(..., true)` — transaction-scoped, not session-scoped. Background jobs have no
 process to run in, so see "Running jobs where there is no process" in `docs/ARCHITECTURE.md`.
 
+Managed providers usually present a certificate signed by their own CA, which Node does not trust.
+Put that CA in `DATABASE_CA_CERT` (Supabase: Settings → Database → SSL configuration) and the
+connection is encrypted *and* authenticated. `DATABASE_SSL_NO_VERIFY=1` also connects, but it
+accepts any certificate offered, so a machine-in-the-middle between the app and the database would
+go unnoticed. Prefer the CA. `/api/health` reports which of the two is in force.
+
 `DATABASE_URL` is the only variable the app needs to run. Session tokens are random and stored
 hashed, so there is no signing secret. `ENCRYPTION_KEY` (32 bytes, base64) is required only for
 email sync, `ANTHROPIC_API_KEY` only for the agent, and the three `GOOGLE_*` variables only for
